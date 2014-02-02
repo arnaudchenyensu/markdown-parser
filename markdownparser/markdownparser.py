@@ -11,7 +11,7 @@ LINE_BREAK = r'(?P<LINE_BREAK>\s{2,}$)'
 # TODO - Add Setext-style headers (with === and ---)
 
 # BLOCKQUOTE = r'(?P<BLOCKQUOTE>)'
-ORDERED_LISTS = r'(?P<ORDERED_LISTS>^[1-9].)'
+
 CODE_BLOCK = r'(?P<CODE_BLOCK>(^\s{4})|(^\t))'
 # WORDS =
 # WS =
@@ -23,14 +23,6 @@ CODE_BLOCK = r'(?P<CODE_BLOCK>(^\s{4})|(^\t))'
 
 # TODO - add argument for the script
 
-# master_pat = re.compile('|'.join([HTML,
-#                                   SPECIAL_CHARACTERS,
-#                                   LINE_BREAK,
-#                                   HEADERS,
-#                                   UL,
-#                                   ORDERED_LISTS,
-#                                   CODE_BLOCK]))
-
 # Token specification
 
 WORD = r'(?P<WORD>\w+)'
@@ -40,9 +32,11 @@ WS = r'(?P<WS>\s+)'
 HEADER = r'(?P<HEADER>^#{1,6})'
 HTML = r'(?P<HTML>^<([a-z]+)([^<]+)*(?:>(.*)<\/([a-z]+)([^<]+)>|\s+\/>)$)'
 UL = r'(?P<UL>^\*|\+|\-)'
+OL = r'(?P<OL>^[1-9].)'
 NEW_LINE = r'(?P<NEW_LINE>^\n)'
 
-master_pat = re.compile('|'.join([WORD,
+master_pat = re.compile('|'.join([OL,
+                                  WORD,
                                   E_WORD,
                                   B_WORD,
                                   NEW_LINE,
@@ -106,18 +100,22 @@ class MarkdownParser:
         """
         line ::= header { term }*
              |   html
-             |   UL
+             |   ul
+             |   ol
              |   new_line
+             |   { term }*
         """
         if self._accept('HEADER'):
             self.header()
-        self.term()
         if self._accept('UL'):
             self.ul()
+        if self._accept('OL'):
+            self.ol()
         if self._accept('HTML'):
             self.html()
         if self._accept('NEW_LINE'):
             self.new_line()
+        self.term()
         return self.output
 
     def header(self):
@@ -132,7 +130,7 @@ class MarkdownParser:
         self.output += self.tok.value
 
     def ul(self):
-        "UL ::= ('*'|'+'|'-') { term }*"
+        "ul ::= ('*'|'+'|'-') { term }*"
         if not self.ul_open:
             self.output += '<ul>\n'
             self.ul_open = True
@@ -140,10 +138,23 @@ class MarkdownParser:
         self.term()
         self.output += '</li>'
 
+    def ol(self):
+        "ol ::= ([1-9].) { term }*"
+        if not self.ol_open:
+            self.output += '<ol>\n'
+            self.ol_open = True
+        self.output += '<li>'
+        self.term()
+        self.output += '</li>'
+
     def new_line(self):
         ""
         if self.ul_open:
+            self.ul_open = False
             self.output += '</ul>'
+        if self.ol_open:
+            self.ol_open = False
+            self.output += '</ol>'
 
     def term(self):
         "term ::= {word | e_word | b_word | ws}*"
@@ -183,6 +194,11 @@ if __name__ == '__main__':
     print(mp.parse('*   Bird'))
     print(mp.parse('*   Magic'))
     print(mp.parse('\n'))
+    print(mp.parse('1.  Bird'))
+    print(mp.parse('2.  McHale'))
+    print(mp.parse('3.  Parish'))
+    print(mp.parse('\n'))
+
     # Open the file and iterate over the lines of the file
     # path_input_file = 'markdownparser/example.md'
     # path_output_file = 'markdownparser/output.html'
