@@ -35,9 +35,11 @@ UL = r'(?P<UL>^\*|\+|\-)'
 OL = r'(?P<OL>^[1-9].)'
 NEW_LINE = r'(?P<NEW_LINE>^\n)'
 ESC_CHAR = r'(?P<ESC_CHAR>\\(\\|\'|\*|\_|\{|\}|\[|\]|\(|\)|\#|\+|\-|\.|\!))'
+INLINE_LINK = r'(?P<INLINE_LINK>\[.*\]\(.*\))'
 
 master_pat = re.compile('|'.join([OL,
                                   ESC_CHAR,
+                                  INLINE_LINK,
                                   WORD,
                                   E_WORD,
                                   B_WORD,
@@ -131,6 +133,22 @@ class MarkdownParser:
         ""
         self.output += self.tok.value
 
+    def inline_link(self):
+        ""
+        text, in_brackets= re.search(r'\[(.*)\]\((.*)\)', self.tok.value).groups()
+        # Check if a title was provided
+        if " " in in_brackets:
+            link, title = in_brackets.split()
+        else:
+            link, title = in_brackets, None
+        self.output += '<a href="' + link + '"'
+        if title:
+            self.output += ' title=' + title + '>'
+        else:
+            self.output += '>'
+        self.output += text + '</a>'
+        self.term()
+
     def ul(self):
         "ul ::= ('*'|'+'|'-') { term }*"
         if not self.ul_open:
@@ -159,12 +177,13 @@ class MarkdownParser:
             self.output += '</ol>'
 
     def term(self):
-        "term ::= {word | e_word | b_word | ws | esc_char}*"
+        "term ::= {word | e_word | b_word | ws | esc_char | inline_link}*"
         while self._accept('WORD') or\
               self._accept('WS') or\
               self._accept('E_WORD') or\
               self._accept('B_WORD') or\
-              self._accept('ESC_CHAR'):
+              self._accept('ESC_CHAR') or\
+              self._accept('INLINE_LINK'):
             if self.tok.type == 'WORD':
                 self.word()
             elif self.tok.type == 'WS':
@@ -175,9 +194,11 @@ class MarkdownParser:
                 self.b_word()
             elif self.tok.type == 'ESC_CHAR':
                 self.esc_char()
+            elif self.tok.type == 'INLINE_LINK':
+                self.inline_link()
 
     def esc_char(self):
-        self.output +=self.tok.value
+        self.output += self.tok.value
 
     def word(self):
         ""
@@ -200,31 +221,21 @@ class MarkdownParser:
 
 if __name__ == '__main__':
     mp = MarkdownParser()
-    print(mp.parse('### *my emphasis word* dasds **my strong word**'))
-    print(mp.parse('<h1> This is HTML! </h1>'))
-    print(mp.parse('*   Bird'))
-    print(mp.parse('*   Magic'))
-    print(mp.parse('\n'))
-    print(mp.parse('1.  Bird'))
-    print(mp.parse('2.  McHale'))
-    print(mp.parse('3.  Parish'))
-    print(mp.parse('\n'))
-    print(mp.parse('\*literal asterisks\*'))
 
     # Open the file and iterate over the lines of the file
-    # path_input_file = 'markdownparser/example.md'
-    # path_output_file = 'markdownparser/output.html'
+    path_input_file = 'markdownparser/example.md'
+    path_output_file = 'markdownparser/output.html'
 
-    # input_file = open(path_input_file, 'rt')
-    # output_file = open(path_output_file, 'wt')
+    input_file = open(path_input_file, 'rt')
+    output_file = open(path_output_file, 'wt')
 
-    # for line in input_file:
-    #     line = line.strip()
+    for line in input_file:
+        print(mp.parse(line), file=output_file)
 
 
-    # # Close the files
-    # input_file.close()
-    # output_file.close()
+    # Close the files
+    input_file.close()
+    output_file.close()
 
 
 
