@@ -34,8 +34,10 @@ HTML = r'(?P<HTML>^<([a-z]+)([^<]+)*(?:>(.*)<\/([a-z]+)([^<]+)>|\s+\/>)$)'
 UL = r'(?P<UL>^\*|\+|\-)'
 OL = r'(?P<OL>^[1-9].)'
 NEW_LINE = r'(?P<NEW_LINE>^\n)'
+ESC_CHAR = r'(?P<ESC_CHAR>\\(\\|\'|\*|\_|\{|\}|\[|\]|\(|\)|\#|\+|\-|\.|\!))'
 
 master_pat = re.compile('|'.join([OL,
+                                  ESC_CHAR,
                                   WORD,
                                   E_WORD,
                                   B_WORD,
@@ -157,8 +159,12 @@ class MarkdownParser:
             self.output += '</ol>'
 
     def term(self):
-        "term ::= {word | e_word | b_word | ws}*"
-        while self._accept('WORD') or self._accept('WS') or self._accept('E_WORD') or self._accept('B_WORD'):
+        "term ::= {word | e_word | b_word | ws | esc_char}*"
+        while self._accept('WORD') or\
+              self._accept('WS') or\
+              self._accept('E_WORD') or\
+              self._accept('B_WORD') or\
+              self._accept('ESC_CHAR'):
             if self.tok.type == 'WORD':
                 self.word()
             elif self.tok.type == 'WS':
@@ -167,6 +173,11 @@ class MarkdownParser:
                 self.e_word()
             elif self.tok.type == 'B_WORD':
                 self.b_word()
+            elif self.tok.type == 'ESC_CHAR':
+                self.esc_char()
+
+    def esc_char(self):
+        self.output +=self.tok.value
 
     def word(self):
         ""
@@ -198,6 +209,7 @@ if __name__ == '__main__':
     print(mp.parse('2.  McHale'))
     print(mp.parse('3.  Parish'))
     print(mp.parse('\n'))
+    print(mp.parse('\*literal asterisks\*'))
 
     # Open the file and iterate over the lines of the file
     # path_input_file = 'markdownparser/example.md'
