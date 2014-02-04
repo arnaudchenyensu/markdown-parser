@@ -198,7 +198,7 @@ class MarkdownParser:
                 self.inline_link()
 
     def esc_char(self):
-        self.output += self.tok.value
+        self.output += self.tok.value[1]
 
     def word(self):
         ""
