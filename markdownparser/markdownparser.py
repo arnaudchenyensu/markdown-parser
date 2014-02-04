@@ -12,7 +12,6 @@ LINE_BREAK = r'(?P<LINE_BREAK>\s{2,}$)'
 
 # BLOCKQUOTE = r'(?P<BLOCKQUOTE>)'
 
-CODE_BLOCK = r'(?P<CODE_BLOCK>(^\s{4})|(^\t))'
 # WORDS =
 # WS =
 # TODO - HORIZONTAL_RULES = r'(?<PHORIZONTAL RULES>)'
@@ -36,9 +35,11 @@ OL = r'(?P<OL>^[1-9].)'
 NEW_LINE = r'(?P<NEW_LINE>^\n)'
 ESC_CHAR = r'(?P<ESC_CHAR>\\(\\|\'|\*|\_|\{|\}|\[|\]|\(|\)|\#|\+|\-|\.|\!))'
 INLINE_LINK = r'(?P<INLINE_LINK>\[.*\]\(.*\))'
+CODE_BLOCKS = r'(?P<CODE_BLOCKS>\s{4,})'
 
 master_pat = re.compile('|'.join([OL,
                                   ESC_CHAR,
+                                  CODE_BLOCKS,
                                   INLINE_LINK,
                                   WORD,
                                   E_WORD,
@@ -72,8 +73,10 @@ class MarkdownParser:
     def __init__(self):
         self.ul_open = False
         self.ol_open = False
+        self.code_open = False
 
     def parse(self, text):
+        self.text = text
         self.tokens = generate_tokens(text)
         self.tok = None         # Last symbol consumed
         self.nexttok = None     # Nex symbol tokenized
@@ -117,6 +120,8 @@ class MarkdownParser:
             self.ol()
         if self._accept('HTML'):
             self.html()
+        if self._accept('CODE_BLOCKS'):
+            self.code_blocks()
         if self._accept('NEW_LINE'):
             self.new_line()
         self.term()
@@ -128,6 +133,13 @@ class MarkdownParser:
         self.output += '<h' + lvl_header + '>'
         self.term()
         self.output += ' </h' + lvl_header + '>'
+
+    def code_blocks(self):
+        ""
+        if self.code_open != True:
+            self.code_open = True
+            self.output += '<pre><code>'
+        self.output += self.text
 
     def html(self):
         ""
@@ -175,27 +187,31 @@ class MarkdownParser:
         if self.ol_open:
             self.ol_open = False
             self.output += '</ol>'
+        if self.code_open:
+            self.code_open = False
+            self.output += '</code></pre>'
 
     def term(self):
         "term ::= {word | e_word | b_word | ws | esc_char | inline_link}*"
-        while self._accept('WORD') or\
-              self._accept('WS') or\
-              self._accept('E_WORD') or\
-              self._accept('B_WORD') or\
-              self._accept('ESC_CHAR') or\
-              self._accept('INLINE_LINK'):
-            if self.tok.type == 'WORD':
-                self.word()
-            elif self.tok.type == 'WS':
-                self.ws()
-            elif self.tok.type == 'E_WORD':
-                self.e_word()
-            elif self.tok.type == 'B_WORD':
-                self.b_word()
-            elif self.tok.type == 'ESC_CHAR':
-                self.esc_char()
-            elif self.tok.type == 'INLINE_LINK':
-                self.inline_link()
+        if self.code_open != True:
+            while self._accept('WORD') or\
+                  self._accept('WS') or\
+                  self._accept('E_WORD') or\
+                  self._accept('B_WORD') or\
+                  self._accept('ESC_CHAR') or\
+                  self._accept('INLINE_LINK'):
+                if self.tok.type == 'WORD':
+                    self.word()
+                elif self.tok.type == 'WS':
+                    self.ws()
+                elif self.tok.type == 'E_WORD':
+                    self.e_word()
+                elif self.tok.type == 'B_WORD':
+                    self.b_word()
+                elif self.tok.type == 'ESC_CHAR':
+                    self.esc_char()
+                elif self.tok.type == 'INLINE_LINK':
+                    self.inline_link()
 
     def esc_char(self):
         self.output += self.tok.value[1]
