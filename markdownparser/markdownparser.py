@@ -6,7 +6,6 @@ Markdown: Syntax -- http://daringfireball.net/projects/markdown/syntax
 import re
 from collections import namedtuple
 
-SPECIAL_CHARACTERS = r'(?P<SPECIAL_CHARACTERS><|&)'
 LINE_BREAK = r'(?P<LINE_BREAK>\s{2,}$)'
 # TODO - Add Setext-style headers (with === and ---)
 
@@ -31,12 +30,13 @@ WS = r'(?P<WS>\s+)'
 HEADER = r'(?P<HEADER>^#{1,6})'
 HTML = r'(?P<HTML>^<([a-z]+)([^<]+)*(?:>(.*)<\/([a-z]+)([^<]+)>|\s+\/>)$)'
 UL = r'(?P<UL>^\*|\+|\-)'
-OL = r'(?P<OL>^[1-9].)'
+OL = r'(?P<OL>^[1-9]\.)'
 NEW_LINE = r'(?P<NEW_LINE>^\n)'
 ESC_CHAR = r'(?P<ESC_CHAR>\\(\\|\'|\*|\_|\{|\}|\[|\]|\(|\)|\#|\+|\-|\.|\!))'
 INLINE_LINK = r'(?P<INLINE_LINK>\[.*\]\(.*\))'
 CODE_BLOCK = r'(?P<CODE_BLOCK>\s{4,})'
 CODE = r'(?P<CODE>`.*`)'
+SPEC_CHARS = r'(?P<SPEC_CHARS>&|<)'
 
 master_pat = re.compile('|'.join([OL,
                                   ESC_CHAR,
@@ -50,7 +50,8 @@ master_pat = re.compile('|'.join([OL,
                                   WS,
                                   HEADER,
                                   HTML,
-                                  UL]))
+                                  UL,
+                                  SPEC_CHARS]))
 
 # There's a little hack with NEW_LINE and WS. I placed NEW_LINE before
 # WS because WS's regex matched NEW_LINE's regex, but not the other way.
@@ -200,8 +201,14 @@ class MarkdownParser:
             self.code_block_open = False
             self.output += '</code></pre>'
 
+    def spec_chars(self):
+        if self.tok.value == '&':
+            self.output += '&amp;'
+        elif self.tok.value == '<':
+            self.output += '&lt;'
+
     def term(self):
-        "term ::= {word | e_word | b_word | ws | esc_char | inline_link}*"
+        "term ::= {word | e_word | b_word | ws | esc_char | inline_link | spec_chars}*"
         if self.code_block_open != True:
             while self._accept('WORD') or\
                   self._accept('WS') or\
@@ -209,7 +216,8 @@ class MarkdownParser:
                   self._accept('B_WORD') or\
                   self._accept('ESC_CHAR') or\
                   self._accept('INLINE_LINK')or\
-                  self._accept('CODE'):
+                  self._accept('CODE')or\
+                  self._accept('SPEC_CHARS'):
                 if self.tok.type == 'WORD':
                     self.word()
                 elif self.tok.type == 'WS':
@@ -224,6 +232,8 @@ class MarkdownParser:
                     self.inline_link()
                 elif self.tok.type == 'CODE':
                     self.code()
+                elif self.tok.type == 'SPEC_CHARS':
+                    self.spec_chars()
 
     def esc_char(self):
         self.output += self.tok.value[1]
