@@ -35,11 +35,13 @@ OL = r'(?P<OL>^[1-9].)'
 NEW_LINE = r'(?P<NEW_LINE>^\n)'
 ESC_CHAR = r'(?P<ESC_CHAR>\\(\\|\'|\*|\_|\{|\}|\[|\]|\(|\)|\#|\+|\-|\.|\!))'
 INLINE_LINK = r'(?P<INLINE_LINK>\[.*\]\(.*\))'
-CODE_BLOCKS = r'(?P<CODE_BLOCKS>\s{4,})'
+CODE_BLOCK = r'(?P<CODE_BLOCK>\s{4,})'
+CODE = r'(?P<CODE>`.*`)'
 
 master_pat = re.compile('|'.join([OL,
                                   ESC_CHAR,
-                                  CODE_BLOCKS,
+                                  CODE_BLOCK,
+                                  CODE,
                                   INLINE_LINK,
                                   WORD,
                                   E_WORD,
@@ -73,7 +75,7 @@ class MarkdownParser:
     def __init__(self):
         self.ul_open = False
         self.ol_open = False
-        self.code_open = False
+        self.code_block_open = False
 
     def parse(self, text):
         self.text = text
@@ -120,8 +122,8 @@ class MarkdownParser:
             self.ol()
         if self._accept('HTML'):
             self.html()
-        if self._accept('CODE_BLOCKS'):
-            self.code_blocks()
+        if self._accept('CODE_BLOCK'):
+            self.code_block()
         if self._accept('NEW_LINE'):
             self.new_line()
         self.term()
@@ -134,12 +136,19 @@ class MarkdownParser:
         self.term()
         self.output += ' </h' + lvl_header + '>'
 
-    def code_blocks(self):
+    def code_block(self):
         ""
-        if self.code_open != True:
-            self.code_open = True
+        if self.code_block_open != True:
+            self.code_block_open = True
             self.output += '<pre><code>'
         self.output += self.text
+
+    def code(self):
+        ""
+        self.output += '<code>'
+        self.output += self.tok.value.replace("`", "")
+        self.output += '</code>'
+        self.term()
 
     def html(self):
         ""
@@ -187,19 +196,20 @@ class MarkdownParser:
         if self.ol_open:
             self.ol_open = False
             self.output += '</ol>'
-        if self.code_open:
-            self.code_open = False
+        if self.code_block_open:
+            self.code_block_open = False
             self.output += '</code></pre>'
 
     def term(self):
         "term ::= {word | e_word | b_word | ws | esc_char | inline_link}*"
-        if self.code_open != True:
+        if self.code_block_open != True:
             while self._accept('WORD') or\
                   self._accept('WS') or\
                   self._accept('E_WORD') or\
                   self._accept('B_WORD') or\
                   self._accept('ESC_CHAR') or\
-                  self._accept('INLINE_LINK'):
+                  self._accept('INLINE_LINK')or\
+                  self._accept('CODE'):
                 if self.tok.type == 'WORD':
                     self.word()
                 elif self.tok.type == 'WS':
@@ -212,6 +222,8 @@ class MarkdownParser:
                     self.esc_char()
                 elif self.tok.type == 'INLINE_LINK':
                     self.inline_link()
+                elif self.tok.type == 'CODE':
+                    self.code()
 
     def esc_char(self):
         self.output += self.tok.value[1]
