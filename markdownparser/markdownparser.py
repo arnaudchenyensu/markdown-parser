@@ -37,9 +37,11 @@ INLINE_LINK = r'(?P<INLINE_LINK>\[.*\]\(.*\))'
 CODE_BLOCK = r'(?P<CODE_BLOCK>\s{4,})'
 CODE = r'(?P<CODE>`.*`)'
 SPEC_CHARS = r'(?P<SPEC_CHARS>&|<)'
+AUTO_LINK = r'(?P<AUTO_LINK><http:\/\/.*>)'
 
 master_pat = re.compile('|'.join([OL,
                                   ESC_CHAR,
+                                  AUTO_LINK,
                                   CODE_BLOCK,
                                   CODE,
                                   INLINE_LINK,
@@ -217,7 +219,8 @@ class MarkdownParser:
                   self._accept('ESC_CHAR') or\
                   self._accept('INLINE_LINK')or\
                   self._accept('CODE')or\
-                  self._accept('SPEC_CHARS'):
+                  self._accept('SPEC_CHARS')or\
+                  self._accept('AUTO_LINK'):
                 if self.tok.type == 'WORD':
                     self.word()
                 elif self.tok.type == 'WS':
@@ -234,6 +237,12 @@ class MarkdownParser:
                     self.code()
                 elif self.tok.type == 'SPEC_CHARS':
                     self.spec_chars()
+                elif self.tok.type == 'AUTO_LINK':
+                    self.auto_link()
+
+    def auto_link(self):
+        url = self.tok.value[1:len(self.tok.value)-1]
+        self.output += '<a href="' + url + '">' + url + '</a>'
 
     def esc_char(self):
         self.output += self.tok.value[1]
